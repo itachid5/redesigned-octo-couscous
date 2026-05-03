@@ -7,10 +7,16 @@
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f7f9fc; color: #1a1a1a; margin: 0; padding: 40px 20px; }
         .container { max-width: 1000px; margin: auto; }
+        
+        /* Top Toolbar & Header */
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
         .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
+        
+        /* Cards */
         .card { background: #ffffff; padding: 25px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); margin-bottom: 30px; border: 1px solid #edf2f7; overflow-x: auto; }
         h2 { margin-top: 0; font-weight: 500; font-size: 18px; margin-bottom: 20px; color: #4a5568; }
+        
+        /* Form */
         .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
         label { font-size: 13px; color: #718096; font-weight: 500; display: block; margin-bottom: 6px; }
         input[type="text"], input[type="number"], textarea { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 6px; box-sizing: border-box; font-size: 14px; background: #f8fafc; transition: 0.2s; }
@@ -18,12 +24,18 @@
         textarea { font-family: monospace; resize: vertical; }
         button { background-color: #1a202c; color: #fff; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 14px; transition: 0.2s; }
         button:hover { background-color: #2d3748; }
+        
+        /* Table */
         table { width: 100%; border-collapse: collapse; margin-top: 10px; min-width: 600px; }
-        th, td { text-align: left; padding: 15px 10px; border-bottom: 1px solid #edf2f7; font-size: 14px; }
+        th, td { text-align: left; padding: 15px 10px; border-bottom: 1px solid #edf2f7; font-size: 14px; vertical-align: top; }
         th { color: #a0aec0; font-weight: 500; text-transform: uppercase; font-size: 12px; }
+        
+        /* Status Elements */
         .status-dot { display: inline-block; width: 8px; height: 8px; background-color: #cbd5e0; border-radius: 50%; margin-right: 6px; }
         .btn-terminal { background-color: #ebf8ff; color: #3182ce; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-weight: 500; display: inline-block; transition: 0.2s; white-space: nowrap; }
         .btn-terminal:hover { background-color: #bee3f8; }
+        
+        /* Footer */
         .footer { text-align: center; margin-top: 50px; font-size: 13px; color: #a0aec0; }
     </style>
 </head>
@@ -38,7 +50,7 @@
             <form action="/add" method="POST">
                 <div class="form-grid">
                     <div><label>Server Name</label><input type="text" name="name" required placeholder="Ubuntu VPS"></div>
-                    <div><label>Host IP</label><input type="text" name="host" required placeholder="192.168.1.1"></div>
+                    <div><label>Host IP / Domain</label><input type="text" name="host" required placeholder="192.168.1.1"></div>
                     <div><label>Port</label><input type="number" name="port" value="22" required></div>
                     <div><label>Username</label><input type="text" name="user" required placeholder="root"></div>
                 </div>
@@ -57,7 +69,7 @@
                     <tr>
                         <th>Instance</th>
                         <th>Connection Info</th>
-                        <th>Live Status</th>
+                        <th>Live Status & Logs</th>
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -65,7 +77,7 @@
                     {% for server in servers %}
                     <tr>
                         <td style="font-weight: 500;">{{ server.name }}</td>
-                        <td style="color: #718096; font-family: monospace;">{{ server.user }}@{{ server.host }}</td>
+                        <td style="color: #718096; font-family: monospace;">{{ server.user }}@{{ server.host }}:{{ server.port }}</td>
                         <td id="status-{{ server.id }}">
                             <span class="status-dot"></span><span style="color: #718096;">Checking...</span>
                         </td>
@@ -94,14 +106,29 @@
                     .then(res => res.json())
                     .then(data => {
                         const cell = document.getElementById(`status-${id}`);
-                        cell.innerHTML = `<span class="status-dot" style="background-color: ${data.color}; box-shadow: 0 0 5px ${data.color};"></span><span style="color: ${data.color}; font-weight: 500;">${data.status}</span>`;
+                        let htmlContent = `<span class="status-dot" style="background-color: ${data.color}; box-shadow: 0 0 5px ${data.color};"></span><span style="color: ${data.color}; font-weight: 500;">${data.status}</span>`;
+                        
+                        // If status is Failed, display the actual background logs in a mini dark console
+                        if (data.status === "Failed" && data.reason) {
+                            // Filter out generic SSH warnings to keep the log clean
+                            let cleanLogs = data.reason.replace(/Warning: Permanently added.*?known hosts\./g, '').trim();
+                            
+                            htmlContent += `
+                            <div style="background: #0d1117; padding: 10px; border-radius: 6px; border: 1px solid #30363d; font-size: 11px; color: #ff7b72; margin-top: 8px; min-width: 250px; max-width: 400px; font-family: 'Courier New', monospace; line-height: 1.4; white-space: pre-wrap; word-break: break-word;">
+<span style="color: #8b949e;">>_ Background Log:</span>
+${cleanLogs}
+                            </div>`;
+                        }
+                        
+                        cell.innerHTML = htmlContent;
                     })
                     .catch(() => {
                         const cell = document.getElementById(`status-${id}`);
-                        cell.innerHTML = `<span class="status-dot" style="background-color: #f56565;"></span><span style="color: #f56565; font-weight: 500;">Error</span>`;
+                        cell.innerHTML = `<span class="status-dot" style="background-color: #f56565;"></span><span style="color: #f56565; font-weight: 500;">Error Fetching Status</span>`;
                     });
             });
         });
     </script>
 </body>
-</html>
+    </html>
+    
