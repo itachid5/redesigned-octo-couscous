@@ -12,7 +12,8 @@
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
         th { background-color: #fafafa; }
-        input[type="text"], input[type="number"] { width: 100%; padding: 10px; margin: 5px 0 15px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        input[type="text"], input[type="number"], textarea { width: 100%; padding: 10px; margin: 5px 0 15px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        textarea { font-family: monospace; resize: vertical; }
         button { background-color: #000; color: #fff; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; }
         button:hover { background-color: #333; }
         .log-btn { background-color: #e0e0e0; color: #000; text-decoration: none; padding: 6px 12px; border-radius: 4px; font-size: 14px; }
@@ -28,10 +29,11 @@
                     <div style="flex: 1;"><label>Name</label><input type="text" name="name" required placeholder="e.g. My Ubuntu VPS"></div>
                     <div style="flex: 1;"><label>Host (IP)</label><input type="text" name="host" required placeholder="192.168.1.1"></div>
                     <div style="flex: 1;"><label>Port</label><input type="number" name="port" value="22" required></div>
-                </div>
-                <div style="display: flex; gap: 10px;">
                     <div style="flex: 1;"><label>Username</label><input type="text" name="user" required placeholder="root"></div>
-                    <div style="flex: 1;"><label>Key Filename</label><input type="text" name="key_file" required placeholder="id_rsa"></div>
+                </div>
+                <div>
+                    <label>SSH Private Key (Paste entire key content here)</label>
+                    <textarea name="key_content" rows="5" required placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"></textarea>
                 </div>
                 <button type="submit">Add Server & Connect</button>
             </form>
@@ -44,7 +46,7 @@
                     <tr>
                         <th>Name</th>
                         <th>User @ Host</th>
-                        <th>Key File</th>
+                        <th>Status</th>
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -53,7 +55,7 @@
                     <tr>
                         <td>{{ server.name }}</td>
                         <td>{{ server.user }}@{{ server.host }}:{{ server.port }}</td>
-                        <td>{{ server.key_file }}</td>
+                        <td><span style="color: green; font-weight: bold;">Active</span></td>
                         <td><a href="/logs/{{ server.id }}" target="_blank" class="log-btn">View Logs</a></td>
                     </tr>
                     {% endfor %}
