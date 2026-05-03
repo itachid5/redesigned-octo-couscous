@@ -1,6 +1,5 @@
 FROM python:3.9-slim
 
-# Install autossh and ssh client
 RUN apt-get update && \
     apt-get install -y autossh openssh-client && \
     rm -rf /var/lib/apt/lists/*
@@ -12,7 +11,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Create necessary directories
 RUN mkdir -p keys logs
 RUN chmod 700 keys
 
