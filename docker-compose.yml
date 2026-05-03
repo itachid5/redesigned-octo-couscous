@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  ssh-keeper:
+    build: .
+    container_name: ssh-keeper-app
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./keys:/app/keys
+      - ./logs:/app/logs
+      - ./data.json:/app/data.json
+    restart: always
