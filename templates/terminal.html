@@ -2,21 +2,65 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>{{ server.name }} - Terminal Preview</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ server.name }} - Terminal by Mahfuz Ahmed</title>
     <link rel="stylesheet" href="https://unpkg.com/xterm/css/xterm.css" />
     <style>
-        body { background-color: #000; color: #fff; margin: 0; padding: 0; font-family: monospace; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        .top-bar { background-color: #1a1a1a; padding: 10px 20px; font-size: 14px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
-        .status { color: #48bb78; }
-        #terminal-container { flex: 1; padding: 10px; width: 100%; box-sizing: border-box; }
+        body { background-color: #0d1117; color: #c9d1d9; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        /* Top Toolbar */
+        .top-bar { background-color: #161b22; padding: 12px 20px; font-size: 14px; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; }
+        .server-info { display: flex; flex-direction: column; }
+        .server-title { font-weight: 600; color: #fff; font-size: 15px; }
+        .server-sub { font-size: 12px; color: #8b949e; font-family: monospace; margin-top: 2px; }
+        
+        .actions { display: flex; gap: 10px; align-items: center; }
+        button { background-color: #21262d; color: #c9d1d9; border: 1px solid #30363d; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: 0.2s; }
+        button:hover { background-color: #30363d; border-color: #8b949e; }
+        
+        /* Status Indicator */
+        .status-container { display: flex; align-items: center; gap: 6px; background: #0d1117; padding: 6px 12px; border-radius: 20px; border: 1px solid #30363d; font-size: 13px; font-weight: 500; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background-color: #ecc94b; box-shadow: 0 0 5px currentColor; }
+        
+        #terminal-container { flex: 1; padding: 15px; width: 100%; box-sizing: border-box; background: #000; }
+
+        /* Modal for Logs */
+        .modal { display: none; position: fixed; z-index: 10; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); backdrop-filter: blur(4px); }
+        .modal-content { background-color: #161b22; margin: 5% auto; padding: 20px; border: 1px solid #30363d; width: 80%; max-width: 800px; border-radius: 8px; color: #fff; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #30363d; padding-bottom: 10px; margin-bottom: 15px; }
+        .close-btn { cursor: pointer; font-size: 20px; color: #8b949e; }
+        .close-btn:hover { color: #fff; }
+        pre#log-text { background: #0d1117; padding: 15px; border-radius: 6px; overflow-x: auto; font-family: monospace; font-size: 13px; color: #a5d6ff; border: 1px solid #30363d; max-height: 400px; overflow-y: auto; }
     </style>
 </head>
 <body>
     <div class="top-bar">
-        <span>Connected to: <strong>{{ server.user }}@{{ server.host }}</strong> ({{ server.name }})</span>
-        <span class="status">● Live</span>
+        <div class="server-info">
+            <span class="server-title">{{ server.name }}</span>
+            <span class="server-sub">{{ server.user }}@{{ server.host }}:{{ server.port }}</span>
+        </div>
+        <div class="actions">
+            <button onclick="clearTerminal()">Clear</button>
+            <button onclick="fetchLogs()">View Background Logs</button>
+            <button onclick="reconnect()">Reconnect</button>
+            <div class="status-container" id="status-box">
+                <div class="status-dot" id="status-dot" style="background-color: #ecc94b;"></div>
+                <span id="status-text" style="color: #ecc94b;">Connecting...</span>
+            </div>
+        </div>
     </div>
+
     <div id="terminal-container"></div>
+
+    <div id="logModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin: 0; font-size: 16px;">AutoSSH Background Logs</h3>
+                <span class="close-btn" onclick="closeModal()">&times;</span>
+            </div>
+            <pre id="log-text">Loading...</pre>
+        </div>
+    </div>
 
     <script src="https://unpkg.com/xterm/lib/xterm.js"></script>
     <script src="https://unpkg.com/xterm-addon-fit/lib/xterm-addon-fit.js"></script>
@@ -24,37 +68,103 @@
     
     <script>
         const ssh_id = "{{ server.id }}";
-        const socket = io();
+        let socket;
+        let term;
+        let fitAddon;
 
-        // Initialize xterm.js
-        const term = new Terminal({
-            cursorBlink: true,
-            theme: { background: '#000000', foreground: '#ffffff' },
-            fontFamily: 'monospace',
-            fontSize: 15
-        });
-        const fitAddon = new FitAddon.FitAddon();
-        term.loadAddon(fitAddon);
-        term.open(document.getElementById('terminal-container'));
-        fitAddon.fit();
+        function initTerminal() {
+            if (term) term.dispose();
+            term = new Terminal({
+                cursorBlink: true,
+                theme: { background: '#000000', foreground: '#c9d1d9', cursor: '#58a6ff' },
+                fontFamily: '"Fira Code", monospace',
+                fontSize: 14
+            });
+            fitAddon = new FitAddon.FitAddon();
+            term.loadAddon(fitAddon);
+            term.open(document.getElementById('terminal-container'));
+            fitAddon.fit();
 
-        window.addEventListener('resize', () => { fitAddon.fit(); });
+            term.onData((data) => {
+                if (socket && socket.connected) {
+                    socket.emit('terminal_input', { input: data });
+                }
+            });
+        }
 
-        // Connect to backend websocket
-        socket.on('connect', () => {
-            term.write('\r\n*** Connecting to server... ***\r\n');
-            socket.emit('connect_terminal', { ssh_id: ssh_id });
-        });
+        function updateStatus(text, color) {
+            document.getElementById('status-text').innerText = text;
+            document.getElementById('status-text').style.color = color;
+            document.getElementById('status-dot').style.backgroundColor = color;
+            document.getElementById('status-dot').style.boxShadow = `0 0 8px ${color}`;
+        }
 
-        // Receive data from server and write to terminal
-        socket.on('terminal_output', (data) => {
-            term.write(data.output);
-        });
+        function connectSocket() {
+            if (socket) socket.disconnect();
+            socket = io();
+            
+            updateStatus('Connecting...', '#ecc94b');
+            term.write('\r\n\x1b[33m*** Initiating connection to server... ***\x1b[0m\r\n');
 
-        // Send keystrokes from terminal to server
-        term.onData((data) => {
-            socket.emit('terminal_input', { input: data });
-        });
+            socket.on('connect', () => {
+                socket.emit('connect_terminal', { ssh_id: ssh_id });
+            });
+
+            socket.on('terminal_output', (data) => {
+                term.write(data.output);
+            });
+
+            socket.on('terminal_status', (data) => {
+                updateStatus(data.status, data.color);
+            });
+
+            socket.on('disconnect', () => {
+                updateStatus('Disconnected', '#f56565');
+                term.write('\r\n\x1b[31m*** WebSocket Connection Lost ***\x1b[0m\r\n');
+            });
+        }
+
+        function reconnect() {
+            initTerminal();
+            connectSocket();
+        }
+
+        function clearTerminal() {
+            term.clear();
+        }
+
+        // Modal Logic
+        function fetchLogs() {
+            document.getElementById('logModal').style.display = 'block';
+            document.getElementById('log-text').innerText = "Fetching logs...";
+            
+            fetch(`/api/logs/${ssh_id}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('log-text').innerText = data.logs || "Log file is empty.";
+                    // Auto scroll to bottom
+                    const pre = document.getElementById('log-text');
+                    pre.scrollTop = pre.scrollHeight;
+                })
+                .catch(err => {
+                    document.getElementById('log-text').innerText = "Error loading logs: " + err;
+                });
+        }
+
+        function closeModal() {
+            document.getElementById('logModal').style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('logModal')) {
+                closeModal();
+            }
+        }
+        window.addEventListener('resize', () => { if (fitAddon) fitAddon.fit(); });
+
+        // Start
+        initTerminal();
+        connectSocket();
     </script>
 </body>
 </html>
