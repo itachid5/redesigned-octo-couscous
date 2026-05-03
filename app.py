@@ -32,11 +32,15 @@ def start_autossh(server):
     log_path = f"logs/{ssh_id}.log"
     key_path = f"keys/{server['key_file']}"
     
+    # Fingerprint check completely disabled here
     cmd = [
         "autossh", "-M", "0",
         "-o", "ServerAliveInterval=30",
         "-o", "ServerAliveCountMax=3",
         "-o", "StrictHostKeyChecking=no",
+        "-o", "UserKnownHostsFile=/dev/null",
+        "-o", "GlobalKnownHostsFile=/dev/null",
+        "-o", "LogLevel=ERROR", # To prevent logs from filling up with warning messages
         "-i", key_path,
         "-N", f"{server['user']}@{server['host']}",
         "-p", str(server.get('port', 22))
@@ -100,7 +104,7 @@ def view_logs_api(ssh_id):
             return jsonify({"status": "success", "logs": "".join(lines[-100:])})
     return jsonify({"status": "error", "logs": "No background logs found yet."})
 
-# --- NEW: Real-Time Status Checker API ---
+# --- Real-Time Status Checker API ---
 @app.route('/api/status/<ssh_id>')
 def check_status(ssh_id):
     servers = load_data()
@@ -110,11 +114,13 @@ def check_status(ssh_id):
     
     key_path = f"keys/{server['key_file']}"
     
-    # Try an actual quick SSH connection in the background to verify
+    # Strict Host Key checking completely bypassed here as well
     cmd = [
         "ssh", "-o", "BatchMode=yes", 
-        "-o", "ConnectTimeout=5", 
+        "-o", "ConnectTimeout=10", 
         "-o", "StrictHostKeyChecking=no",
+        "-o", "UserKnownHostsFile=/dev/null",
+        "-o", "GlobalKnownHostsFile=/dev/null",
         "-i", key_path,
         "-p", str(server.get('port', 22)),
         f"{server['user']}@{server['host']}",
@@ -122,14 +128,16 @@ def check_status(ssh_id):
     ]
     
     try:
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=8)
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=12)
         if result.returncode == 0:
             return jsonify({"status": "Online", "color": "#48bb78"})
         else:
+            # We can print result.stderr to docker logs if we want to debug further
+            print(f"Status check failed for {server['name']}: {result.stderr.decode()}")
             return jsonify({"status": "Failed", "color": "#f56565"})
     except subprocess.TimeoutExpired:
         return jsonify({"status": "Timeout", "color": "#ecc94b"})
-    except Exception:
+    except Exception as e:
         return jsonify({"status": "Error", "color": "#f56565"})
 
 # --- WebSocket Logic ---
@@ -160,13 +168,15 @@ def connect_terminal(data):
     
     try:
         client = paramiko.SSHClient()
+        # AutoAddPolicy bypasses strict checking for paramiko
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         client.connect(
             hostname=server['host'],
             port=server['port'],
             username=server['user'],
             key_filename=key_path,
-            timeout=15
+            timeout=15,
+            banner_timeout=15
         )
         channel = client.invoke_shell()
         ssh_sessions[sid] = {'client': client, 'channel': channel}
