@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ server.name }} - Terminal Preview</title>
+    <link rel="stylesheet" href="https://unpkg.com/xterm/css/xterm.css" />
+    <style>
+        body { background-color: #000; color: #fff; margin: 0; padding: 0; font-family: monospace; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        .top-bar { background-color: #1a1a1a; padding: 10px 20px; font-size: 14px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+        .status { color: #48bb78; }
+        #terminal-container { flex: 1; padding: 10px; width: 100%; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <span>Connected to: <strong>{{ server.user }}@{{ server.host }}</strong> ({{ server.name }})</span>
+        <span class="status">● Live</span>
+    </div>
+    <div id="terminal-container"></div>
+
+    <script src="https://unpkg.com/xterm/lib/xterm.js"></script>
+    <script src="https://unpkg.com/xterm-addon-fit/lib/xterm-addon-fit.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    
+    <script>
+        const ssh_id = "{{ server.id }}";
+        const socket = io();
+
+        // Initialize xterm.js
+        const term = new Terminal({
+            cursorBlink: true,
+            theme: { background: '#000000', foreground: '#ffffff' },
+            fontFamily: 'monospace',
+            fontSize: 15
+        });
+        const fitAddon = new FitAddon.FitAddon();
+        term.loadAddon(fitAddon);
+        term.open(document.getElementById('terminal-container'));
+        fitAddon.fit();
+
+        window.addEventListener('resize', () => { fitAddon.fit(); });
+
+        // Connect to backend websocket
+        socket.on('connect', () => {
+            term.write('\r\n*** Connecting to server... ***\r\n');
+            socket.emit('connect_terminal', { ssh_id: ssh_id });
+        });
+
+        // Receive data from server and write to terminal
+        socket.on('terminal_output', (data) => {
+            term.write(data.output);
+        });
+
+        // Send keystrokes from terminal to server
+        term.onData((data) => {
+            socket.emit('terminal_input', { input: data });
+        });
+    </script>
+</body>
+</html>
