@@ -91,7 +91,6 @@ def terminal_page(ssh_id):
         return "Server not found", 404
     return render_template('terminal.html', server=server)
 
-# API for fetching logs in the terminal modal
 @app.route('/api/logs/<ssh_id>')
 def view_logs_api(ssh_id):
     log_path = f"logs/{ssh_id}.log"
@@ -101,6 +100,39 @@ def view_logs_api(ssh_id):
             return jsonify({"status": "success", "logs": "".join(lines[-100:])})
     return jsonify({"status": "error", "logs": "No background logs found yet."})
 
+# --- NEW: Real-Time Status Checker API ---
+@app.route('/api/status/<ssh_id>')
+def check_status(ssh_id):
+    servers = load_data()
+    server = next((s for s in servers if s['id'] == ssh_id), None)
+    if not server:
+        return jsonify({"status": "Error", "color": "#f56565"})
+    
+    key_path = f"keys/{server['key_file']}"
+    
+    # Try an actual quick SSH connection in the background to verify
+    cmd = [
+        "ssh", "-o", "BatchMode=yes", 
+        "-o", "ConnectTimeout=5", 
+        "-o", "StrictHostKeyChecking=no",
+        "-i", key_path,
+        "-p", str(server.get('port', 22)),
+        f"{server['user']}@{server['host']}",
+        "echo", "ok"
+    ]
+    
+    try:
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=8)
+        if result.returncode == 0:
+            return jsonify({"status": "Online", "color": "#48bb78"})
+        else:
+            return jsonify({"status": "Failed", "color": "#f56565"})
+    except subprocess.TimeoutExpired:
+        return jsonify({"status": "Timeout", "color": "#ecc94b"})
+    except Exception:
+        return jsonify({"status": "Error", "color": "#f56565"})
+
+# --- WebSocket Logic ---
 def read_from_terminal(channel, sid):
     while True:
         try:
