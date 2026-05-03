@@ -9,7 +9,7 @@
         .container { max-width: 1000px; margin: auto; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
         .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
-        .card { background: #ffffff; padding: 25px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); margin-bottom: 30px; border: 1px solid #edf2f7; }
+        .card { background: #ffffff; padding: 25px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); margin-bottom: 30px; border: 1px solid #edf2f7; overflow-x: auto; }
         h2 { margin-top: 0; font-weight: 500; font-size: 18px; margin-bottom: 20px; color: #4a5568; }
         .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
         label { font-size: 13px; color: #718096; font-weight: 500; display: block; margin-bottom: 6px; }
@@ -18,11 +18,11 @@
         textarea { font-family: monospace; resize: vertical; }
         button { background-color: #1a202c; color: #fff; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 14px; transition: 0.2s; }
         button:hover { background-color: #2d3748; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; min-width: 600px; }
         th, td { text-align: left; padding: 15px 10px; border-bottom: 1px solid #edf2f7; font-size: 14px; }
         th { color: #a0aec0; font-weight: 500; text-transform: uppercase; font-size: 12px; }
-        .status-dot { display: inline-block; width: 8px; height: 8px; background-color: #48bb78; border-radius: 50%; margin-right: 6px; }
-        .btn-terminal { background-color: #ebf8ff; color: #3182ce; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-weight: 500; display: inline-block; transition: 0.2s; }
+        .status-dot { display: inline-block; width: 8px; height: 8px; background-color: #cbd5e0; border-radius: 50%; margin-right: 6px; }
+        .btn-terminal { background-color: #ebf8ff; color: #3182ce; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-weight: 500; display: inline-block; transition: 0.2s; white-space: nowrap; }
         .btn-terminal:hover { background-color: #bee3f8; }
         .footer { text-align: center; margin-top: 50px; font-size: 13px; color: #a0aec0; }
     </style>
@@ -57,7 +57,7 @@
                     <tr>
                         <th>Instance</th>
                         <th>Connection Info</th>
-                        <th>Status</th>
+                        <th>Live Status</th>
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -66,8 +66,10 @@
                     <tr>
                         <td style="font-weight: 500;">{{ server.name }}</td>
                         <td style="color: #718096; font-family: monospace;">{{ server.user }}@{{ server.host }}</td>
-                        <td><span class="status-dot"></span>Online</td>
-                        <td><a href="/terminal/{{ server.id }}" target="_blank" class="btn-terminal">Live Terminal Preview</a></td>
+                        <td id="status-{{ server.id }}">
+                            <span class="status-dot"></span><span style="color: #718096;">Checking...</span>
+                        </td>
+                        <td><a href="/terminal/{{ server.id }}" target="_blank" class="btn-terminal">Terminal Preview</a></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -78,5 +80,28 @@
             by Mahfuz Ahmed
         </div>
     </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const servers = [
+                {% for server in servers %}
+                "{{ server.id }}",
+                {% endfor %}
+            ];
+            
+            servers.forEach(id => {
+                fetch(`/api/status/${id}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        const cell = document.getElementById(`status-${id}`);
+                        cell.innerHTML = `<span class="status-dot" style="background-color: ${data.color}; box-shadow: 0 0 5px ${data.color};"></span><span style="color: ${data.color}; font-weight: 500;">${data.status}</span>`;
+                    })
+                    .catch(() => {
+                        const cell = document.getElementById(`status-${id}`);
+                        cell.innerHTML = `<span class="status-dot" style="background-color: #f56565;"></span><span style="color: #f56565; font-weight: 500;">Error</span>`;
+                    });
+            });
+        });
+    </script>
 </body>
 </html>
