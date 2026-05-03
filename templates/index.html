@@ -3,49 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SSH Keeper Dashboard</title>
+    <title>SSH Hub</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
-        .container { max-width: 900px; margin: auto; }
-        .card { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        h2 { margin-top: 0; font-weight: 500; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
-        th { background-color: #fafafa; }
-        input[type="text"], input[type="number"], textarea { width: 100%; padding: 10px; margin: 5px 0 15px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f7f9fc; color: #1a1a1a; margin: 0; padding: 40px 20px; }
+        .container { max-width: 1000px; margin: auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
+        .card { background: #ffffff; padding: 25px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); margin-bottom: 30px; border: 1px solid #edf2f7; }
+        h2 { margin-top: 0; font-weight: 500; font-size: 18px; margin-bottom: 20px; color: #4a5568; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
+        label { font-size: 13px; color: #718096; font-weight: 500; display: block; margin-bottom: 6px; }
+        input[type="text"], input[type="number"], textarea { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 6px; box-sizing: border-box; font-size: 14px; background: #f8fafc; transition: 0.2s; }
+        input:focus, textarea:focus { outline: none; border-color: #a0aec0; background: #fff; }
         textarea { font-family: monospace; resize: vertical; }
-        button { background-color: #000; color: #fff; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        button:hover { background-color: #333; }
-        .log-btn { background-color: #e0e0e0; color: #000; text-decoration: none; padding: 6px 12px; border-radius: 4px; font-size: 14px; }
-        .log-btn:hover { background-color: #ccc; }
+        button { background-color: #1a202c; color: #fff; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 14px; transition: 0.2s; }
+        button:hover { background-color: #2d3748; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 15px 10px; border-bottom: 1px solid #edf2f7; font-size: 14px; }
+        th { color: #a0aec0; font-weight: 500; text-transform: uppercase; font-size: 12px; }
+        .status-dot { display: inline-block; width: 8px; height: 8px; background-color: #48bb78; border-radius: 50%; margin-right: 6px; }
+        .btn-terminal { background-color: #ebf8ff; color: #3182ce; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-weight: 500; display: inline-block; transition: 0.2s; }
+        .btn-terminal:hover { background-color: #bee3f8; }
+        .footer { text-align: center; margin-top: 50px; font-size: 13px; color: #a0aec0; }
     </style>
 </head>
 <body>
     <div class="container">
+        <div class="header">
+            <h1>Server Hub</h1>
+        </div>
+
         <div class="card">
-            <h2>Add New SSH Connection</h2>
+            <h2>Add New Connection</h2>
             <form action="/add" method="POST">
-                <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1;"><label>Name</label><input type="text" name="name" required placeholder="e.g. My Ubuntu VPS"></div>
-                    <div style="flex: 1;"><label>Host (IP)</label><input type="text" name="host" required placeholder="192.168.1.1"></div>
-                    <div style="flex: 1;"><label>Port</label><input type="number" name="port" value="22" required></div>
-                    <div style="flex: 1;"><label>Username</label><input type="text" name="user" required placeholder="root"></div>
+                <div class="form-grid">
+                    <div><label>Server Name</label><input type="text" name="name" required placeholder="Ubuntu VPS"></div>
+                    <div><label>Host IP</label><input type="text" name="host" required placeholder="192.168.1.1"></div>
+                    <div><label>Port</label><input type="number" name="port" value="22" required></div>
+                    <div><label>Username</label><input type="text" name="user" required placeholder="root"></div>
                 </div>
-                <div>
-                    <label>SSH Private Key (Paste entire key content here)</label>
-                    <textarea name="key_content" rows="5" required placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"></textarea>
+                <div style="margin-bottom: 15px;">
+                    <label>SSH Private Key</label>
+                    <textarea name="key_content" rows="4" required placeholder="-----BEGIN OPENSSH PRIVATE KEY-----..."></textarea>
                 </div>
-                <button type="submit">Add Server & Connect</button>
+                <button type="submit">Deploy Connection</button>
             </form>
         </div>
 
         <div class="card">
-            <h2>Active Connections</h2>
+            <h2>Active Deployments</h2>
             <table>
                 <thead>
                     <tr>
-                        <th>Name</th>
-                        <th>User @ Host</th>
+                        <th>Instance</th>
+                        <th>Connection Info</th>
                         <th>Status</th>
                         <th>Action</th>
                     </tr>
@@ -53,14 +64,18 @@
                 <tbody>
                     {% for server in servers %}
                     <tr>
-                        <td>{{ server.name }}</td>
-                        <td>{{ server.user }}@{{ server.host }}:{{ server.port }}</td>
-                        <td><span style="color: green; font-weight: bold;">Active</span></td>
-                        <td><a href="/logs/{{ server.id }}" target="_blank" class="log-btn">View Logs</a></td>
+                        <td style="font-weight: 500;">{{ server.name }}</td>
+                        <td style="color: #718096; font-family: monospace;">{{ server.user }}@{{ server.host }}</td>
+                        <td><span class="status-dot"></span>Online</td>
+                        <td><a href="/terminal/{{ server.id }}" target="_blank" class="btn-terminal">Live Terminal Preview</a></td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+
+        <div class="footer">
+            by Mahfuz Ahmed
         </div>
     </div>
 </body>
