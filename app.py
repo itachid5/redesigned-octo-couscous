@@ -2,7 +2,7 @@ import os
 import json
 import subprocess
 import uuid
-from flask import Flask, render_template, request, redirect, jsonify
+from flask import Flask, render_template, request, redirect
 
 app = Flask(__name__)
 DATA_FILE = 'data.json'
@@ -26,7 +26,6 @@ def start_autossh(server):
     log_path = f"logs/{ssh_id}.log"
     key_path = f"keys/{server['key_file']}"
     
-    # autossh command for persistent connection
     cmd = [
         "autossh", "-M", "0",
         "-o", "ServerAliveInterval=30",
@@ -37,7 +36,6 @@ def start_autossh(server):
         "-p", str(server.get('port', 22))
     ]
     
-    # Ensure correct permissions for SSH key
     if os.path.exists(key_path):
         os.chmod(key_path, 0o600)
     
@@ -57,13 +55,28 @@ def index():
 @app.route('/add', methods=['POST'])
 def add_server():
     data = load_data()
+    server_id = str(uuid.uuid4())[:8]
+    
+    # Get the private key content from the form
+    key_content = request.form['key_content']
+    key_filename = f"key_{server_id}.pem"
+    key_path = os.path.join("keys", key_filename)
+    
+    # Save the key content to a file automatically
+    with open(key_path, 'w') as f:
+        # strip() and add a newline to ensure SSH reads it correctly
+        f.write(key_content.strip() + '\n')
+    
+    # SSH requires private keys to have strict permissions
+    os.chmod(key_path, 0o600)
+
     new_server = {
-        "id": str(uuid.uuid4())[:8],
+        "id": server_id,
         "name": request.form['name'],
         "host": request.form['host'],
         "port": request.form['port'],
         "user": request.form['user'],
-        "key_file": request.form['key_file']
+        "key_file": key_filename
     }
     data.append(new_server)
     save_data(data)
@@ -76,7 +89,7 @@ def view_logs(ssh_id):
     if os.path.exists(log_path):
         with open(log_path, 'r') as f:
             lines = f.readlines()
-            return "<pre>" + "".join(lines[-50:]) + "</pre>" # Show last 50 lines
+            return "<pre>" + "".join(lines[-50:]) + "</pre>"
     return "No logs found."
 
 if __name__ == '__main__':
