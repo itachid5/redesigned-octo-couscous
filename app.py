@@ -3,7 +3,7 @@ import json
 import subprocess
 import uuid
 import threading
-from flask import Flask, render_template, request, redirect
+from flask import Flask, render_template, request, redirect, jsonify
 from flask_socketio import SocketIO, emit
 import paramiko
 
@@ -13,7 +13,7 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
 DATA_FILE = 'data.json'
 processes = {}
-ssh_sessions = {} # For active web terminal sessions
+ssh_sessions = {}
 
 if not os.path.exists(DATA_FILE):
     with open(DATA_FILE, 'w') as f:
@@ -91,16 +91,25 @@ def terminal_page(ssh_id):
         return "Server not found", 404
     return render_template('terminal.html', server=server)
 
-# --- WebSocket Terminal Logic ---
+# API for fetching logs in the terminal modal
+@app.route('/api/logs/<ssh_id>')
+def view_logs_api(ssh_id):
+    log_path = f"logs/{ssh_id}.log"
+    if os.path.exists(log_path):
+        with open(log_path, 'r') as f:
+            lines = f.readlines()
+            return jsonify({"status": "success", "logs": "".join(lines[-100:])})
+    return jsonify({"status": "error", "logs": "No background logs found yet."})
 
 def read_from_terminal(channel, sid):
     while True:
         try:
-            data = channel.recv(1024).decode('utf-8')
+            data = channel.recv(1024).decode('utf-8', errors='replace')
             if not data:
                 break
             socketio.emit('terminal_output', {'output': data}, to=sid)
         except Exception:
+            socketio.emit('terminal_status', {'status': 'Disconnected', 'color': '#f56565'}, to=sid)
             break
 
 @socketio.on('connect_terminal')
@@ -115,6 +124,7 @@ def connect_terminal(data):
         return
 
     key_path = f"keys/{server['key_file']}"
+    emit('terminal_status', {'status': 'Connecting...', 'color': '#ecc94b'})
     
     try:
         client = paramiko.SSHClient()
@@ -124,23 +134,29 @@ def connect_terminal(data):
             port=server['port'],
             username=server['user'],
             key_filename=key_path,
-            timeout=10
+            timeout=15
         )
         channel = client.invoke_shell()
         ssh_sessions[sid] = {'client': client, 'channel': channel}
         
-        # Start a thread to read output from the server
+        emit('terminal_status', {'status': 'Connected', 'color': '#48bb78'})
+        emit('terminal_output', {'output': '\r\n*** Successfully connected! ***\r\n\r\n'})
+        
         threading.Thread(target=read_from_terminal, args=(channel, sid), daemon=True).start()
         
     except Exception as e:
-        emit('terminal_output', {'output': f'\r\nConnection Failed: {str(e)}\r\n'})
+        emit('terminal_status', {'status': 'Connection Failed', 'color': '#f56565'})
+        emit('terminal_output', {'output': f'\r\n[Error] Connection Failed: {str(e)}\r\n'})
 
 @socketio.on('terminal_input')
 def terminal_input(data):
     sid = request.sid
     if sid in ssh_sessions:
         channel = ssh_sessions[sid]['channel']
-        channel.send(data['input'])
+        try:
+            channel.send(data['input'])
+        except Exception:
+            pass
 
 @socketio.on('disconnect')
 def disconnect_terminal():
@@ -150,5 +166,4 @@ def disconnect_terminal():
         del ssh_sessions[sid]
 
 if __name__ == '__main__':
-    # Use socketio.run instead of app.run for WebSockets
     socketio.run(app, host='0.0.0.0', port=5000)
